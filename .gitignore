@@ -1,0 +1,11 @@
+# Ignore data folders (too large for GitHub)
+data/
+images/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
