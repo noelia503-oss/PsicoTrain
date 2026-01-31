@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>PsicoTrain - Entrenador de Psicotécnicos</title>
+    <meta name="description" content="Aplicación interactiva para practicar ejercicios psicotécnicos de oposiciones">
+
+    <!-- PWA Meta Tags -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#6366f1">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="PsicoTrain">
+    <link rel="apple-touch-icon" href="icons/icon-192.png">
+
+    <!-- PDF.js Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+
+    <!-- Styles -->
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
+
+    <!-- Service Worker Registration -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('sw.js')
+                    .then(reg => console.log('Service Worker registrado'))
+                    .catch(err => console.log('Error SW:', err));
+            });
+        }
+    </script>
+</head>
+
+<body>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="logo">
+                <span class="logo-icon">🧠</span>
+                <h1>PsicoTrain</h1>
+            </div>
+
+            <nav class="categories-nav">
+                <h2>Categorías</h2>
+                <ul id="categoriesList">
+                    <!-- Se llena dinámicamente -->
+                </ul>
+            </nav>
+
+            <!-- Sidebar Actions -->
+            <div class="sidebar-actions">
+                <button class="sidebar-btn" onclick="showUploadPanel()">
+                    <span>📄</span> Cargar PDFs
+                </button>
+                <button class="sidebar-btn" onclick="showNotesPanel()">
+                    <span>📒</span> Trucos y Notas
+                </button>
+            </div>
+
+
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Header -->
+            <header class="header">
+                <div class="breadcrumb" id="breadcrumb">
+                    <span>Selecciona una categoría para comenzar</span>
+                </div>
+                <div class="header-actions">
+                    <button class="btn-icon" onclick="toggleDarkMode()" title="Modo oscuro">🌙</button>
+                    <button class="btn-icon" onclick="showHelp()" title="Ayuda">❓</button>
+                </div>
+            </header>
+
+            <!-- Welcome Screen -->
+            <section id="welcomeScreen" class="welcome-screen">
+                <div class="welcome-content">
+                    <h2>¡Bienvenido a PsicoTrain!</h2>
+                    <p>Tu entrenador personal para ejercicios psicotécnicos</p>
+
+                    <div class="features">
+                        <div class="feature">
+                            <span class="feature-icon">📚</span>
+                            <h3>4 Categorías</h3>
+                            <p>Percepción, Razonamiento Abstracto, Espacial y Verbal</p>
+                        </div>
+                        <div class="feature">
+                            <span class="feature-icon">✨</span>
+                            <h3>Interactivo</h3>
+                            <p>Responde y recibe feedback inmediato</p>
+                        </div>
+                        <div class="feature">
+                            <span class="feature-icon">📊</span>
+                            <h3>Estadísticas</h3>
+                            <p>Lleva el control de tu progreso</p>
+                        </div>
+                    </div>
+
+                    <p class="cta-text">👈 Selecciona una categoría en el menú lateral para empezar</p>
+                </div>
+            </section>
+
+            <!-- Exercise List Screen -->
+            <section id="exerciseListScreen" class="exercise-list-screen hidden">
+                <div class="exercise-grid" id="exerciseGrid">
+                    <!-- Se llena dinámicamente -->
+                </div>
+            </section>
+
+            <!-- Exercise Viewer Screen -->
+            <section id="exerciseViewerScreen" class="exercise-viewer-screen hidden">
+                <!-- Top Bar -->
+                <div class="viewer-top-bar">
+                    <button class="back-btn-inline" onclick="goBackToList()">← Volver</button>
+                    <div class="viewer-navigation">
+                        <button class="nav-btn" id="prevPageBtn" onclick="prevPage()">◀</button>
+                        <span class="page-indicator" id="pageIndicator">Página 1 de 1</span>
+                        <button class="nav-btn" id="nextPageBtn" onclick="nextPage()">▶</button>
+                    </div>
+                    <div class="drawing-toggle">
+                        <button class="tool-btn" id="toggleDrawing" onclick="toggleDrawingMode()"
+                            title="Modo dibujo">🎨</button>
+                    </div>
+                </div>
+
+                <!-- Drawing Toolbar (shows when drawing mode enabled) -->
+                <div class="drawing-toolbar hidden" id="drawingToolbar">
+                    <button class="tool-btn active" id="toolPen" onclick="setTool('pen')" title="Lápiz">✏️</button>
+                    <button class="tool-btn" id="toolHighlighter" onclick="setTool('highlighter')"
+                        title="Marcador">🖍️</button>
+                    <button class="tool-btn" id="toolEraser" onclick="setTool('eraser')" title="Borrador">🧽</button>
+                    <div class="color-picker">
+                        <button class="color-btn active" style="background:#ef4444"
+                            onclick="setColor('#ef4444')"></button>
+                        <button class="color-btn" style="background:#3b82f6" onclick="setColor('#3b82f6')"></button>
+                        <button class="color-btn" style="background:#22c55e" onclick="setColor('#22c55e')"></button>
+                        <button class="color-btn" style="background:#f59e0b" onclick="setColor('#f59e0b')"></button>
+                        <button class="color-btn" style="background:#000000" onclick="setColor('#000000')"></button>
+                    </div>
+                    <div class="brush-size-control">
+                        <span class="size-label">Grosor:</span>
+                        <input type="range" id="brushSize" min="1" max="30" value="4"
+                            oninput="setBrushSize(this.value)">
+                        <span class="size-value" id="brushSizeValue">4</span>
+                    </div>
+                    <button class="tool-btn" onclick="clearDrawing()" title="Limpiar">🗑️</button>
+                </div>
+
+                <!-- Main Content: Viewer + Answers Panel -->
+                <div class="viewer-layout">
+                    <!-- Image Viewer (Left) -->
+                    <div class="image-container" id="imageContainer">
+                        <div class="image-wrapper" id="imageWrapper">
+                            <img id="exerciseImage" src="" alt="Ejercicio">
+                            <canvas id="drawingCanvas"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Answers Panel (Right) -->
+                    <div class="answers-panel" id="answersPanel">
+                        <div class="answers-header">
+                            <h3>📝 Respuestas</h3>
+                            <button class="btn-small" onclick="clearPageAnswers()">Limpiar</button>
+                        </div>
+                        <div class="answers-list" id="answersList">
+                            <!-- Se genera dinámicamente con JavaScript -->
+                        </div>
+                        <div class="answers-footer">
+                            <button class="btn-small" onclick="addMoreQuestions()">+ Más</button>
+                            <span class="question-count" id="questionCount">10 preguntas</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Zoom Controls (floating) -->
+                <div class="zoom-controls">
+                    <button class="zoom-btn" onclick="zoomIn()">+</button>
+                    <button class="zoom-btn" onclick="zoomOut()">-</button>
+                    <button class="zoom-btn" onclick="resetZoom()">↺</button>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Help Modal -->
+    <div id="helpModal" class="modal hidden">
+        <div class="modal-content">
+            <button class="modal-close" onclick="closeHelp()">×</button>
+            <h2>Ayuda</h2>
+            <div class="help-content">
+                <h3>¿Cómo usar PsicoTrain?</h3>
+                <ol>
+                    <li>Selecciona una <strong>categoría</strong> en el menú lateral</li>
+                    <li>Elige un <strong>tipo de ejercicio</strong></li>
+                    <li>Navega por las páginas del ejercicio</li>
+                    <li>Marca tus <strong>respuestas</strong> en el panel derecho</li>
+                    <li>Usa 🎨 para activar el modo dibujo</li>
+                </ol>
+
+                <h3>Controles</h3>
+                <ul>
+                    <li><strong>← →</strong> Navegar entre páginas</li>
+                    <li><strong>+/-</strong> Zoom en la imagen</li>
+                    <li><strong>🎨</strong> Activa el modo dibujo para anotar</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- Upload PDF Modal -->
+    <div id="uploadModal" class="modal hidden">
+        <div class="modal-content modal-large">
+            <button class="modal-close" onclick="closeUploadPanel()">×</button>
+            <h2>📄 Cargar PDFs</h2>
+            <div class="upload-content">
+                <p>Arrastra PDFs aquí o haz clic para seleccionar:</p>
+                <div class="upload-zone" id="uploadZone" ondrop="handleDrop(event)" ondragover="handleDragOver(event)"
+                    ondragleave="handleDragLeave(event)">
+                    <span class="upload-icon">📁</span>
+                    <p>Arrastra archivos PDF aquí</p>
+                    <input type="file" id="pdfInput" accept=".pdf" multiple onchange="handleFileSelect(event)" hidden>
+                    <button class="btn-primary" onclick="document.getElementById('pdfInput').click()">Seleccionar
+                        archivos</button>
+                </div>
+                <div class="upload-list" id="uploadList">
+                    <!-- Lista de PDFs a cargar -->
+                </div>
+                <div class="upload-note">
+                    <strong>Nota:</strong> Los PDFs se convertirán a imágenes. Este proceso puede tardar unos minutos.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notes Modal -->
+    <div id="notesModal" class="modal hidden">
+        <div class="modal-content modal-large">
+            <button class="modal-close" onclick="closeNotesPanel()">×</button>
+            <h2>📒 Trucos y Notas</h2>
+            <div class="notes-content">
+                <div class="notes-categories" id="notesCategories">
+                    <button class="note-cat-btn active" onclick="selectNoteCategory('general')">📌 General</button>
+                    <button class="note-cat-btn" onclick="selectNoteCategory('percepcion')">👁️ Percepción</button>
+                    <button class="note-cat-btn" onclick="selectNoteCategory('abstracto')">🧩 R. Abstracto</button>
+                    <button class="note-cat-btn" onclick="selectNoteCategory('espacial')">📐 R. Espacial</button>
+                    <button class="note-cat-btn" onclick="selectNoteCategory('verbal')">📝 Verbal</button>
+                </div>
+                <div class="notes-editor">
+                    <textarea id="notesTextarea" placeholder="Escribe tus trucos, atajos y notas aquí..."></textarea>
+                </div>
+                <div class="notes-actions">
+                    <button class="btn-secondary" onclick="clearCurrentNotes()">Limpiar</button>
+                    <button class="btn-primary" onclick="saveNotes()">💾 Guardar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+
+</html>
