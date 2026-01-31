@@ -40,8 +40,14 @@
         <!-- Sidebar -->
         <aside class="sidebar">
             <div class="logo">
-                <span class="logo-icon">🧠</span>
-                <h1>PsicoTrain</h1>
+                <div class="logo-text">
+                    <span class="logo-icon">🧠</span>
+                    <h1>PsicoTrain</h1>
+                </div>
+                <button id="toggleSidebar" class="sidebar-toggle-btn" title="Contraer/Expandir menú"
+                    onclick="toggleSidebar()">
+                    <span>◀</span>
+                </button>
             </div>
 
             <nav class="categories-nav">
@@ -83,23 +89,7 @@
                     <h2>¡Bienvenido a PsicoTrain!</h2>
                     <p>Tu entrenador personal para ejercicios psicotécnicos</p>
 
-                    <div class="features">
-                        <div class="feature">
-                            <span class="feature-icon">📚</span>
-                            <h3>4 Categorías</h3>
-                            <p>Percepción, Razonamiento Abstracto, Espacial y Verbal</p>
-                        </div>
-                        <div class="feature">
-                            <span class="feature-icon">✨</span>
-                            <h3>Interactivo</h3>
-                            <p>Responde y recibe feedback inmediato</p>
-                        </div>
-                        <div class="feature">
-                            <span class="feature-icon">📊</span>
-                            <h3>Estadísticas</h3>
-                            <p>Lleva el control de tu progreso</p>
-                        </div>
-                    </div>
+
 
                     <p class="cta-text">👈 Selecciona una categoría en el menú lateral para empezar</p>
                 </div>
@@ -117,14 +107,30 @@
                 <!-- Top Bar -->
                 <div class="viewer-top-bar">
                     <button class="back-btn-inline" onclick="goBackToList()">← Volver</button>
+
+                    <div class="stopwatch-container">
+                        <span id="stopwatchDisplay" class="stopwatch-display">00:00</span>
+                        <div class="stopwatch-controls">
+                            <button id="toggleStopwatch" class="stopwatch-btn" onclick="toggleStopwatch()"
+                                title="Pausar/Reanudar">⏸</button>
+                            <button id="resetStopwatch" class="stopwatch-btn" onclick="resetStopwatch()"
+                                title="Reiniciar">🔄</button>
+                        </div>
+                    </div>
+
                     <div class="viewer-navigation">
                         <button class="nav-btn" id="prevPageBtn" onclick="prevPage()">◀</button>
                         <span class="page-indicator" id="pageIndicator">Página 1 de 1</span>
                         <button class="nav-btn" id="nextPageBtn" onclick="nextPage()">▶</button>
                     </div>
-                    <div class="drawing-toggle">
-                        <button class="tool-btn" id="toggleDrawing" onclick="toggleDrawingMode()"
-                            title="Modo dibujo">🎨</button>
+
+                    <div class="viewer-actions">
+                        <button class="tool-btn" id="toggleExerciseNotes" onclick="toggleExerciseNotes()"
+                            title="Notas rápidas del ejercicio">📝</button>
+                        <div class="drawing-toggle">
+                            <button class="tool-btn" id="toggleDrawing" onclick="toggleDrawingMode()"
+                                title="Modo dibujo">🎨</button>
+                        </div>
                     </div>
                 </div>
 
@@ -141,6 +147,7 @@
                         <button class="color-btn" style="background:#22c55e" onclick="setColor('#22c55e')"></button>
                         <button class="color-btn" style="background:#f59e0b" onclick="setColor('#f59e0b')"></button>
                         <button class="color-btn" style="background:#000000" onclick="setColor('#000000')"></button>
+                        <button class="color-btn" style="background:#ffffff" onclick="setColor('#ffffff')"></button>
                     </div>
                     <div class="brush-size-control">
                         <span class="size-label">Grosor:</span>
@@ -171,20 +178,31 @@
                             <!-- Se genera dinámicamente con JavaScript -->
                         </div>
                         <div class="answers-footer">
-                            <button class="btn-small" onclick="addMoreQuestions()">+ Más</button>
-                            <span class="question-count" id="questionCount">10 preguntas</span>
+                            <!-- Quick Notes Panel (Inside Answers for better layout) -->
+                            <div class="exercise-notes-panel hidden" id="exerciseNotesPanel">
+                                <div class="notes-header">
+                                    <h4>📓 Notas del Ejercicio</h4>
+                                    <button class="btn-close" onclick="toggleExerciseNotes()">×</button>
+                                </div>
+                                <textarea id="exerciseNotesArea"
+                                    placeholder="Trucos o notas para este PDF..."></textarea>
+                            </div>
                         </div>
+                        <button class="btn-small" onclick="addMoreQuestions()">+ Más</button>
+                        <span class="question-count" id="questionCount">10 preguntas</span>
                     </div>
                 </div>
+    </div>
+    </div>
 
-                <!-- Zoom Controls (floating) -->
-                <div class="zoom-controls">
-                    <button class="zoom-btn" onclick="zoomIn()">+</button>
-                    <button class="zoom-btn" onclick="zoomOut()">-</button>
-                    <button class="zoom-btn" onclick="resetZoom()">↺</button>
-                </div>
-            </section>
-        </main>
+    <!-- Zoom Controls (floating) -->
+    <div class="zoom-controls">
+        <button class="zoom-btn" onclick="zoomIn()">+</button>
+        <button class="zoom-btn" onclick="zoomOut()">-</button>
+        <button class="zoom-btn" onclick="resetZoom()">↺</button>
+    </div>
+    </section>
+    </main>
     </div>
 
     <!-- Help Modal -->

@@ -28,7 +28,14 @@ const state = {
         ctx: null,
         canvas: null,
         savedDrawings: {}     // Guardar dibujos por ejercicio/página
-    }
+    },
+    sidebarCollapsed: false,  // Estado de la barra lateral
+    stopwatch: {
+        seconds: 0,
+        timerId: null,
+        isRunning: false
+    },
+    exerciseNotes: {}      // Notas por ejercicio {exerciseName: "nota"}
 };
 
 // Iconos para categorías
@@ -41,12 +48,31 @@ const categoryIcons = {
 
 // Inicialización
 document.addEventListener('DOMContentLoaded', async () => {
+    console.log('PsicoTrain: Iniciando aplicación...');
+
+    // Inicializar barra lateral inmediatamente
+    initSidebar();
+
     await loadData();
     renderCategories();
     loadStats();
     loadPageAnswers();
     loadSavedDrawings();
+    loadExerciseNotes(); // Cargar notas desde localStorage
+
+    // Inicializar listeners de notas
+    initNotesListeners();
+
+    // Registrar Service Worker para modo offline
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('/sw.js')
+                .then(reg => console.log('Service Worker registrado:', reg.scope))
+                .catch(err => console.error('Error al registrar Service Worker:', err));
+        });
+    }
 });
+
 
 /**
  * Carga los datos de ejercicios y respuestas
@@ -118,6 +144,14 @@ function selectCategory(category) {
 }
 
 /**
+ * Vuelve a la lista de ejercicios de la categoría actual
+ */
+function goBackToList() {
+    stopTimer(); // Parar cronómetro si está activo
+    showScreen('exerciseListScreen');
+}
+
+/**
  * Renderiza la lista de ejercicios de la categoría actual
  */
 function renderExerciseList() {
@@ -169,6 +203,15 @@ function selectExercise(exercise) {
     `;
 
     showScreen('exerciseViewerScreen');
+
+    // Reiniciar y empezar cronómetro
+    state.stopwatch.seconds = 0;
+    updateStopwatchDisplay();
+    startTimer();
+
+    // Cargar nota del ejercicio
+    loadCurrentExerciseNote();
+
     loadPage();
 }
 
@@ -1133,8 +1176,10 @@ function selectNoteCategory(category) {
     // Actualizar UI
     document.querySelectorAll('.note-cat-btn').forEach(btn => {
         btn.classList.remove('active');
+        if (btn.textContent.toLowerCase().includes(category.toLowerCase())) {
+            btn.classList.add('active');
+        }
     });
-    event.target.classList.add('active');
 
     // Cargar notas de la nueva categoría
     loadNotes();
@@ -1326,3 +1371,184 @@ nextPage = function () {
         originalNextPage();
     }
 };
+
+// ==========================================
+// SIDEBAR COLLAPSE FUNCTIONS
+// ==========================================
+
+/**
+ * Inicializa el estado de la barra lateral desde localStorage
+ */
+function initSidebar() {
+    const savedState = localStorage.getItem('psicotrain_sidebar_collapsed');
+    if (savedState === 'true') {
+        state.sidebarCollapsed = true;
+        document.querySelector('.sidebar').classList.add('collapsed');
+    }
+
+    // Añadir listener al botón de toggle (si no tiene ya el onclick de HTML)
+    const toggleBtn = document.getElementById('toggleSidebar');
+    if (toggleBtn && !toggleBtn.onclick) {
+        toggleBtn.onclick = toggleSidebar;
+    }
+}
+
+/**
+ * Alterna el estado de la barra lateral
+ */
+function toggleSidebar() {
+    state.sidebarCollapsed = !state.sidebarCollapsed;
+    const sidebar = document.querySelector('.sidebar');
+
+    if (state.sidebarCollapsed) {
+        sidebar.classList.add('collapsed');
+    } else {
+        sidebar.classList.remove('collapsed');
+    }
+
+    // Guardar estado
+    localStorage.setItem('psicotrain_sidebar_collapsed', state.sidebarCollapsed);
+
+    // Disparar evento de resize para recalcular el tamaño del visor si es necesario
+    window.dispatchEvent(new Event('resize'));
+
+    // Notificar al sistema de dibujo que el canvas puede necesitar redimensionarse
+    if (state.drawing.enabled) {
+        setTimeout(initDrawingCanvas, 350); // Esperar a que termine la animación
+    }
+}
+
+// ==========================================
+// STOPWATCH FUNCTIONS
+// ==========================================
+
+/**
+ * Inicia el cronómetro
+ */
+function startTimer() {
+    if (state.stopwatch.isRunning) return;
+    state.stopwatch.isRunning = true;
+    updateTimerBtnUI();
+
+    state.stopwatch.timerId = setInterval(() => {
+        state.stopwatch.seconds++;
+        updateStopwatchDisplay();
+    }, 1000);
+}
+
+/**
+ * Detiene el cronómetro
+ */
+function stopTimer() {
+    state.stopwatch.isRunning = false;
+    if (state.stopwatch.timerId) {
+        clearInterval(state.stopwatch.timerId);
+        state.stopwatch.timerId = null;
+    }
+    updateTimerBtnUI();
+}
+
+/**
+ * Alterna el cronómetro
+ */
+function toggleStopwatch() {
+    if (state.stopwatch.isRunning) {
+        stopTimer();
+    } else {
+        startTimer();
+    }
+}
+
+/**
+ * Reinicia el cronómetro
+ */
+function resetStopwatch() {
+    stopTimer();
+    state.stopwatch.seconds = 0;
+    updateStopwatchDisplay();
+    startTimer();
+}
+
+/**
+ * Actualiza la visualización del cronómetro
+ */
+function updateStopwatchDisplay() {
+    const display = document.getElementById('stopwatchDisplay');
+    if (!display) return;
+
+    const minutes = Math.floor(state.stopwatch.seconds / 60);
+    const seconds = state.stopwatch.seconds % 60;
+
+    const formatted = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+    display.textContent = formatted;
+}
+
+/**
+ * Actualiza el icono del botón de pausa/reinicio
+ */
+function updateTimerBtnUI() {
+    const btn = document.getElementById('toggleStopwatch');
+    if (btn) {
+        btn.textContent = state.stopwatch.isRunning ? '⏸' : '▶';
+    }
+}
+
+// ==========================================
+// EXERCISE NOTES FUNCTIONS
+// ==========================================
+
+/**
+ * Alterna la visibilidad del panel de notas del ejercicio
+ */
+function toggleExerciseNotes() {
+    const panel = document.getElementById('exerciseNotesPanel');
+    if (panel) {
+        panel.classList.toggle('hidden');
+    }
+}
+
+/**
+ * Inicializa los listeners para el área de notas
+ */
+function initNotesListeners() {
+    const notesArea = document.getElementById('exerciseNotesArea');
+    if (notesArea) {
+        notesArea.addEventListener('input', () => {
+            if (state.currentExercise) {
+                state.exerciseNotes[state.currentExercise.name] = notesArea.value;
+                saveExerciseNotes();
+            }
+        });
+    }
+}
+
+/**
+ * Carga las notas de todos los ejercicios desde localStorage
+ */
+function loadExerciseNotes() {
+    try {
+        const saved = localStorage.getItem('psicotrain_exercise_notes');
+        if (saved) {
+            state.exerciseNotes = JSON.parse(saved);
+        }
+    } catch (e) {
+        console.error('Error cargando notas de ejercicios:', e);
+    }
+}
+
+/**
+ * Guarda las notas de todos los ejercicios en localStorage
+ */
+function saveExerciseNotes() {
+    localStorage.setItem('psicotrain_exercise_notes', JSON.stringify(state.exerciseNotes));
+}
+
+/**
+ * Carga la nota específica del ejercicio actual en el textarea
+ */
+function loadCurrentExerciseNote() {
+    const notesArea = document.getElementById('exerciseNotesArea');
+    if (notesArea && state.currentExercise) {
+        notesArea.value = state.exerciseNotes[state.currentExercise.name] || '';
+    }
+}

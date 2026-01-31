@@ -78,7 +78,6 @@ body {
     overflow: hidden;
 }
 
-/* Sidebar */
 .sidebar {
     width: 280px;
     min-width: 280px;
@@ -88,16 +87,70 @@ body {
     flex-direction: column;
     padding: 1.5rem;
     overflow-y: auto;
+    transition: var(--transition);
+    position: relative;
+    z-index: 100;
+}
+
+.sidebar.collapsed {
+    width: 60px;
+    min-width: 60px;
+    padding: 1rem 0.5rem;
 }
 
 .logo {
     display: flex;
     align-items: center;
-    gap: 0.75rem;
+    justify-content: space-between;
     padding-bottom: 1.5rem;
     border-bottom: 1px solid var(--border);
     margin-bottom: 1.5rem;
+    overflow: hidden;
 }
+
+.logo-text {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    transition: var(--transition);
+}
+
+.sidebar.collapsed .logo-text {
+    opacity: 0;
+    pointer-events: none;
+    width: 0;
+}
+
+.sidebar-toggle-btn {
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    color: var(--text-primary);
+    width: 30px;
+    height: 30px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: var(--transition);
+    flex-shrink: 0;
+}
+
+.sidebar-toggle-btn:hover {
+    background: var(--primary);
+    border-color: var(--primary);
+}
+
+.sidebar.collapsed .sidebar-toggle-btn span {
+    transform: rotate(180deg);
+}
+
+/* Hide navigation and actions when collapsed */
+.sidebar.collapsed .categories-nav,
+.sidebar.collapsed .sidebar-actions {
+    display: none;
+}
+
 
 .logo-icon {
     font-size: 2rem;
@@ -240,7 +293,10 @@ body {
     flex: 1;
     display: flex;
     flex-direction: column;
+    height: 100%;
     overflow: hidden;
+    position: relative;
+    transition: var(--transition);
 }
 
 /* Header */
@@ -621,6 +677,11 @@ body {
     border: 3px solid transparent;
     cursor: pointer;
     transition: var(--transition);
+}
+
+.color-btn[style*="background:#ffffff"],
+.color-btn[style*="background: white"] {
+    border: 1px solid var(--border);
 }
 
 .color-btn:hover {
@@ -1079,6 +1140,7 @@ body {
         top: 60px;
     }
 }
+
 /* Sidebar Actions */
 .sidebar-actions {
     margin-top: auto;
@@ -1235,4 +1297,116 @@ body {
     display: flex;
     gap: 1rem;
     justify-content: flex-end;
+}
+/* Stopwatch Styles */
+.stopwatch-container {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    background: var(--bg-tertiary);
+    padding: 0.4rem 0.75rem;
+    border-radius: 2rem;
+    border: 1px solid var(--border);
+    margin: 0 1rem;
+}
+
+.stopwatch-display {
+    font-family: 'JetBrains Mono', 'Courier New', monospace;
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--primary-light);
+    min-width: 60px;
+    text-align: center;
+}
+
+.stopwatch-controls {
+    display: flex;
+    gap: 0.25rem;
+}
+
+.stopwatch-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-size: 1rem;
+    padding: 0.2rem;
+    border-radius: 50%;
+    transition: var(--transition);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.stopwatch-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--text-primary);
+}
+
+/* Exercise Notes Panel Styles */
+.exercise-notes-panel {
+    background: var(--bg-tertiary);
+    border-radius: 0.75rem;
+    padding: 1rem;
+    margin-bottom: 1rem;
+    border: 1px solid var(--border);
+    transition: var(--transition);
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    box-shadow: var(--shadow-lg);
+}
+
+.exercise-notes-panel.hidden {
+    display: none;
+}
+
+.notes-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.notes-header h4 {
+    font-size: 0.9rem;
+    margin: 0;
+    color: var(--text-primary);
+}
+
+.btn-close {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    font-size: 1.2rem;
+    cursor: pointer;
+    padding: 0;
+    line-height: 1;
+}
+
+.btn-close:hover {
+    color: var(--incorrect);
+}
+
+#exerciseNotesArea {
+    width: 100%;
+    min-height: 120px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 0.5rem;
+    padding: 0.75rem;
+    color: var(--text-primary);
+    font-family: inherit;
+    font-size: 0.9rem;
+    resize: vertical;
+    outline: none;
+}
+
+#exerciseNotesArea:focus {
+    border-color: var(--primary);
+}
+
+.viewer-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
 }
