@@ -21,7 +21,11 @@ const state = {
         enabled: false,
         tool: 'pen',          // 'pen', 'highlighter', 'eraser'
         color: '#ef4444',
-        brushSize: 4,
+        brushSizes: {         // Grosor individual por herramienta
+            pen: 4,
+            highlighter: 12,
+            eraser: 20
+        },
         isDrawing: false,
         lastX: 0,
         lastY: 0,
@@ -58,10 +62,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     loadStats();
     loadPageAnswers();
     loadSavedDrawings();
-    loadExerciseNotes(); // Cargar notas desde localStorage
-
-    // Inicializar listeners de notas
-    initNotesListeners();
+    loadBrushSizes(); // Cargar grosores de pincel guardados
 
     // Registrar Service Worker para modo offline
     if ('serviceWorker' in navigator) {
@@ -208,9 +209,6 @@ function selectExercise(exercise) {
     state.stopwatch.seconds = 0;
     updateStopwatchDisplay();
     startTimer();
-
-    // Cargar nota del ejercicio
-    loadCurrentExerciseNote();
 
     loadPage();
 }
@@ -564,37 +562,103 @@ function updateZoom() {
     }
 
     // Ajustar tamaño del wrapper para scroll correcto
-    if (wrapper && img.naturalWidth) {
-        wrapper.style.width = (img.naturalWidth * state.zoomLevel) + 'px';
-        wrapper.style.height = (img.naturalHeight * state.zoomLevel) + 'px';
+    if (wrapper && img.naturalWidth && img.naturalHeight) {
+        const scaledWidth = img.naturalWidth * state.zoomLevel;
+        const scaledHeight = img.naturalHeight * state.zoomLevel;
+        wrapper.style.width = scaledWidth + 'px';
+        wrapper.style.height = scaledHeight + 'px';
+    }
+
+    // Actualizar display del nivel de zoom
+    updateZoomDisplay();
+}
+
+/**
+ * Actualiza el display del nivel de zoom (si existe)
+ */
+function updateZoomDisplay() {
+    const zoomDisplay = document.getElementById('zoomDisplay');
+    if (zoomDisplay) {
+        zoomDisplay.textContent = `${Math.round(state.zoomLevel * 100)}%`;
     }
 }
 
-// Zoom con rueda del ratón - Con debounce para trackpad menos sensible
+// Zoom con rueda del ratón - Mejorado para modo dibujo y scroll con trackpad
 let zoomTimeout = null;
 let zoomAccumulator = 0;
 
 document.addEventListener('wheel', (e) => {
     const container = document.getElementById('imageContainer');
-    if (container && container.contains(e.target)) {
-        e.preventDefault();
+    const drawingCanvas = document.getElementById('drawingCanvas');
 
-        // Acumular el delta del scroll (para trackpads que envían muchos eventos pequeños)
-        zoomAccumulator += e.deltaY;
+    // Verificar si el evento es sobre el contenedor de imagen o el canvas de dibujo
+    if (container && (container.contains(e.target) || e.target === drawingCanvas)) {
+        // Solo hacer zoom si se usa Ctrl+wheel o Cmd+wheel (zoom intencional)
+        // Permitir scroll normal del trackpad cuando no se presiona Ctrl/Cmd
+        const isZoomGesture = e.ctrlKey || e.metaKey;
 
-        // Solo aplicar zoom si hay suficiente acumulación o después de un delay
-        if (zoomTimeout) clearTimeout(zoomTimeout);
+        if (isZoomGesture) {
+            // Prevenir solo cuando es un gesto de zoom intencional
+            e.preventDefault();
+            e.stopPropagation();
 
-        zoomTimeout = setTimeout(() => {
-            if (Math.abs(zoomAccumulator) > 30) { // Umbral de sensibilidad
-                if (zoomAccumulator < 0) {
-                    zoomIn();
-                } else {
-                    zoomOut();
+            // Acumular el delta del scroll (para trackpads que envían muchos eventos pequeños)
+            zoomAccumulator += e.deltaY;
+
+            // Solo aplicar zoom si hay suficiente acumulación o después de un delay
+            if (zoomTimeout) clearTimeout(zoomTimeout);
+
+            zoomTimeout = setTimeout(() => {
+                if (Math.abs(zoomAccumulator) > 30) { // Umbral de sensibilidad
+                    if (zoomAccumulator < 0) {
+                        zoomIn();
+                    } else {
+                        zoomOut();
+                    }
                 }
-            }
-            zoomAccumulator = 0;
-        }, 50); // 50ms de debounce
+                zoomAccumulator = 0;
+            }, 50); // 50ms de debounce
+        }
+        // Si no es un gesto de zoom (Ctrl/Cmd), permitir el scroll normal del trackpad
+        // No hacemos preventDefault(), por lo que el scroll funcionará naturalmente
+    }
+}, { passive: false });
+
+// Soporte para pinch-to-zoom en dispositivos táctiles
+let initialPinchDistance = 0;
+let initialZoomLevel = 1;
+
+document.addEventListener('touchstart', (e) => {
+    const container = document.getElementById('imageContainer');
+    if (container && container.contains(e.target) && e.touches.length === 2) {
+        e.preventDefault();
+        const touch1 = e.touches[0];
+        const touch2 = e.touches[1];
+        initialPinchDistance = Math.hypot(
+            touch2.clientX - touch1.clientX,
+            touch2.clientY - touch1.clientY
+        );
+        initialZoomLevel = state.zoomLevel;
+    }
+}, { passive: false });
+
+document.addEventListener('touchmove', (e) => {
+    const container = document.getElementById('imageContainer');
+    if (container && container.contains(e.target) && e.touches.length === 2) {
+        e.preventDefault();
+        const touch1 = e.touches[0];
+        const touch2 = e.touches[1];
+        const currentDistance = Math.hypot(
+            touch2.clientX - touch1.clientX,
+            touch2.clientY - touch1.clientY
+        );
+
+        if (initialPinchDistance > 0) {
+            const scale = currentDistance / initialPinchDistance;
+            state.zoomLevel = Math.max(0.2, Math.min(4, initialZoomLevel * scale));
+            state.zoomLevel = Math.round(state.zoomLevel * 10) / 10;
+            updateZoom();
+        }
     }
 }, { passive: false });
 
@@ -820,7 +884,11 @@ function toggleDrawingMode() {
     if (state.drawing.enabled) {
         canvas.classList.add('drawing-active');
         toggleBtn.classList.add('drawing-enabled');
-        if (toolbar) toolbar.classList.remove('hidden');
+        if (toolbar) {
+            toolbar.classList.remove('hidden');
+            // Hacer la barra arrastrable cuando se activa
+            makeDrawingToolbarDraggable();
+        }
 
         // Inicializar canvas si no está listo
         if (!state.drawing.ctx) {
@@ -851,6 +919,15 @@ function setTool(tool) {
     if (toolBtn) {
         toolBtn.classList.add('active');
     }
+
+    // Restaurar el grosor guardado de esta herramienta
+    const savedSize = state.drawing.brushSizes[tool];
+    if (savedSize !== undefined) {
+        const brushSizeInput = document.getElementById('brushSize');
+        const brushSizeValue = document.getElementById('brushSizeValue');
+        if (brushSizeInput) brushSizeInput.value = savedSize;
+        if (brushSizeValue) brushSizeValue.textContent = savedSize;
+    }
 }
 
 /**
@@ -872,10 +949,43 @@ function setColor(color) {
  * Establece el tamaño del pincel
  */
 function setBrushSize(size) {
-    state.drawing.brushSize = parseInt(size);
+    const sizeInt = parseInt(size);
+
+    // Guardar el grosor en la herramienta actual
+    state.drawing.brushSizes[state.drawing.tool] = sizeInt;
+
     // Actualizar indicador visual
     const sizeValue = document.getElementById('brushSizeValue');
     if (sizeValue) sizeValue.textContent = size;
+
+    // Guardar en localStorage
+    saveBrushSizes();
+}
+
+/**
+ * Guarda los grosores de pincel en localStorage
+ */
+function saveBrushSizes() {
+    try {
+        localStorage.setItem('psicotrain_brush_sizes', JSON.stringify(state.drawing.brushSizes));
+    } catch (e) {
+        console.warn('Error guardando grosores de pincel');
+    }
+}
+
+/**
+ * Carga los grosores de pincel desde localStorage
+ */
+function loadBrushSizes() {
+    try {
+        const saved = localStorage.getItem('psicotrain_brush_sizes');
+        if (saved) {
+            const sizes = JSON.parse(saved);
+            state.drawing.brushSizes = { ...state.drawing.brushSizes, ...sizes };
+        }
+    } catch (e) {
+        console.warn('Error cargando grosores de pincel');
+    }
 }
 
 /**
@@ -891,6 +1001,120 @@ function startDrawing(e) {
 }
 
 /**
+ * Hace la barra de herramientas de dibujo arrastrable
+ */
+let toolbarDragInitialized = false;
+
+function makeDrawingToolbarDraggable() {
+    // Evitar inicializar múltiples veces
+    if (toolbarDragInitialized) return;
+
+    const toolbar = document.getElementById('drawingToolbar');
+    if (!toolbar) return;
+
+    let isDragging = false;
+    let currentX;
+    let currentY;
+    let initialX;
+    let initialY;
+
+    // Event listeners para mouse
+    toolbar.addEventListener('mousedown', dragStart);
+    document.addEventListener('mousemove', drag);
+    document.addEventListener('mouseup', dragEnd);
+
+    // Event listeners para touch (iPad / Apple Pencil)
+    toolbar.addEventListener('touchstart', dragStartTouch);
+    document.addEventListener('touchmove', dragTouch);
+    document.addEventListener('touchend', dragEndTouch);
+
+    function dragStart(e) {
+        // Solo permitir arrastre si no se está haciendo clic en un botón o control
+        if (e.target.tagName === 'BUTTON' || e.target.tagName === 'INPUT' ||
+            e.target.closest('button') || e.target.closest('input')) {
+            return;
+        }
+
+        initialX = e.clientX - toolbar.offsetLeft;
+        initialY = e.clientY - toolbar.offsetTop;
+        isDragging = true;
+        toolbar.style.cursor = 'grabbing';
+    }
+
+    function dragStartTouch(e) {
+        // Solo permitir arrastre si no se está tocando un botón o control
+        if (e.target.tagName === 'BUTTON' || e.target.tagName === 'INPUT' ||
+            e.target.closest('button') || e.target.closest('input')) {
+            return;
+        }
+
+        const touch = e.touches[0];
+        initialX = touch.clientX - toolbar.offsetLeft;
+        initialY = touch.clientY - toolbar.offsetTop;
+        isDragging = true;
+    }
+
+    function drag(e) {
+        if (isDragging) {
+            e.preventDefault();
+
+            currentX = e.clientX - initialX;
+            currentY = e.clientY - initialY;
+
+            // Limitar a los bordes de la ventana
+            const maxX = window.innerWidth - toolbar.offsetWidth;
+            const maxY = window.innerHeight - toolbar.offsetHeight;
+
+            currentX = Math.max(0, Math.min(currentX, maxX));
+            currentY = Math.max(0, Math.min(currentY, maxY));
+
+            toolbar.style.left = currentX + 'px';
+            toolbar.style.top = currentY + 'px';
+            toolbar.style.bottom = 'auto';
+        }
+    }
+
+    function dragTouch(e) {
+        if (isDragging) {
+            e.preventDefault();
+
+            const touch = e.touches[0];
+            currentX = touch.clientX - initialX;
+            currentY = touch.clientY - initialY;
+
+            // Limitar a los bordes de la ventana
+            const maxX = window.innerWidth - toolbar.offsetWidth;
+            const maxY = window.innerHeight - toolbar.offsetHeight;
+
+            currentX = Math.max(0, Math.min(currentX, maxX));
+            currentY = Math.max(0, Math.min(currentY, maxY));
+
+            toolbar.style.left = currentX + 'px';
+            toolbar.style.top = currentY + 'px';
+            toolbar.style.bottom = 'auto';
+        }
+    }
+
+    function dragEnd() {
+        if (isDragging) {
+            isDragging = false;
+            toolbar.style.cursor = 'move';
+        }
+    }
+
+    function dragEndTouch() {
+        if (isDragging) {
+            isDragging = false;
+        }
+    }
+
+    // Cambiar cursor para indicar que se puede arrastrar
+    toolbar.style.cursor = 'move';
+    toolbarDragInitialized = true;
+}
+
+
+/**
  * Dibuja en el canvas
  */
 function draw(e) {
@@ -903,19 +1127,22 @@ function draw(e) {
     ctx.moveTo(state.drawing.lastX, state.drawing.lastY);
     ctx.lineTo(coords.x, coords.y);
 
+    // Obtener el grosor actual de la herramienta
+    const currentBrushSize = state.drawing.brushSizes[state.drawing.tool] || 4;
+
     // Configurar estilo según herramienta
     if (state.drawing.tool === 'eraser') {
         ctx.globalCompositeOperation = 'destination-out';
         ctx.strokeStyle = 'rgba(0,0,0,1)';
-        ctx.lineWidth = state.drawing.brushSize * 3;
+        ctx.lineWidth = currentBrushSize;
     } else if (state.drawing.tool === 'highlighter') {
         ctx.globalCompositeOperation = 'source-over';
         ctx.strokeStyle = hexToRgba(state.drawing.color, 0.3);
-        ctx.lineWidth = state.drawing.brushSize * 4;
+        ctx.lineWidth = currentBrushSize;
     } else {
         ctx.globalCompositeOperation = 'source-over';
         ctx.strokeStyle = state.drawing.color;
-        ctx.lineWidth = state.drawing.brushSize;
+        ctx.lineWidth = currentBrushSize;
     }
 
     ctx.lineCap = 'round';
@@ -937,44 +1164,101 @@ function stopDrawing() {
 }
 
 /**
- * Obtiene coordenadas del canvas
+ * Obtiene coordenadas del canvas teniendo en cuenta el zoom
+ * Soporta tanto eventos de mouse como touch (Apple Pencil y dedos)
  */
 function getCanvasCoords(e) {
     const canvas = state.drawing.canvas;
     const rect = canvas.getBoundingClientRect();
+
+    let clientX, clientY;
+
+    // Determinar si es un evento touch o mouse
+    if (e.touches && e.touches.length > 0) {
+        // Es un evento touch (puede ser Apple Pencil o dedo)
+        const touch = e.touches[0];
+        clientX = touch.clientX;
+        clientY = touch.clientY;
+    } else if (e.clientX !== undefined && e.clientY !== undefined) {
+        // Es un evento mouse o MouseEvent sintético
+        clientX = e.clientX;
+        clientY = e.clientY;
+    } else {
+        // Fallback por si acaso
+        return { x: 0, y: 0 };
+    }
+
+    // El canvas tiene las dimensiones naturales de la imagen
+    // pero se escala visualmente con transform: scale()
+    // Por lo tanto, necesitamos ajustar las coordenadas según el zoom
     const scaleX = canvas.width / rect.width;
     const scaleY = canvas.height / rect.height;
 
     return {
-        x: (e.clientX - rect.left) * scaleX,
-        y: (e.clientY - rect.top) * scaleY
+        x: (clientX - rect.left) * scaleX,
+        y: (clientY - rect.top) * scaleY
     };
 }
 
 /**
- * Maneja touch start
+ * Maneja touch start (Apple Pencil o dedo)
  */
 function handleTouchStart(e) {
     e.preventDefault();
+
+    // Detectar si es Apple Pencil
     const touch = e.touches[0];
-    const mouseEvent = new MouseEvent('mousedown', {
-        clientX: touch.clientX,
-        clientY: touch.clientY
-    });
-    startDrawing(mouseEvent);
+    const isApplePencil = touch.touchType === 'stylus';
+
+    // Si es Apple Pencil, podríamos ajustar el grosor o comportamiento
+    // Por ahora, simplemente iniciamos el dibujo normalmente
+    if (!state.drawing.enabled) return;
+
+    state.drawing.isDrawing = true;
+    const coords = getCanvasCoords(e);
+    state.drawing.lastX = coords.x;
+    state.drawing.lastY = coords.y;
 }
 
 /**
- * Maneja touch move
+ * Maneja touch move (Apple Pencil o dedo)
  */
 function handleTouchMove(e) {
     e.preventDefault();
-    const touch = e.touches[0];
-    const mouseEvent = new MouseEvent('mousemove', {
-        clientX: touch.clientX,
-        clientY: touch.clientY
-    });
-    draw(mouseEvent);
+
+    if (!state.drawing.isDrawing || !state.drawing.enabled) return;
+
+    const ctx = state.drawing.ctx;
+    const coords = getCanvasCoords(e);
+
+    ctx.beginPath();
+    ctx.moveTo(state.drawing.lastX, state.drawing.lastY);
+    ctx.lineTo(coords.x, coords.y);
+
+    // Obtener el grosor actual de la herramienta
+    const currentBrushSize = state.drawing.brushSizes[state.drawing.tool] || 4;
+
+    // Configurar estilo según herramienta
+    if (state.drawing.tool === 'eraser') {
+        ctx.globalCompositeOperation = 'destination-out';
+        ctx.strokeStyle = 'rgba(0,0,0,1)';
+        ctx.lineWidth = currentBrushSize;
+    } else if (state.drawing.tool === 'highlighter') {
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.strokeStyle = hexToRgba(state.drawing.color, 0.3);
+        ctx.lineWidth = currentBrushSize;
+    } else {
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.strokeStyle = state.drawing.color;
+        ctx.lineWidth = currentBrushSize;
+    }
+
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.stroke();
+
+    state.drawing.lastX = coords.x;
+    state.drawing.lastY = coords.y;
 }
 
 /**
@@ -1223,7 +1507,8 @@ let loadedPDF = {
     document: null,
     currentPage: 1,
     totalPages: 0,
-    fileName: ''
+    fileName: '',
+    pageCache: {} // Caché de páginas renderizadas
 };
 
 // Modificar handleFiles para procesar PDFs directamente
@@ -1268,6 +1553,7 @@ async function loadPDFFromFile(file) {
         loadedPDF.totalPages = pdf.numPages;
         loadedPDF.currentPage = 1;
         loadedPDF.fileName = file.name;
+        loadedPDF.pageCache = {}; // Limpiar caché
 
         // Cerrar modal de upload
         closeUploadPanel();
@@ -1294,6 +1580,9 @@ async function loadPDFFromFile(file) {
         // Renderizar primera página
         await renderPDFPage(1);
 
+        // Precargar páginas adyacentes
+        preloadAdjacentPages(1);
+
         // Actualizar panel de respuestas
         renderAnswersPanel();
 
@@ -1305,15 +1594,24 @@ async function loadPDFFromFile(file) {
     }
 }
 
-// Renderizar página del PDF
+// Renderizar página del PDF con mejor calidad y caché
 async function renderPDFPage(pageNum) {
     if (!loadedPDF.document) return;
 
     try {
+        // Verificar si la página ya está en caché
+        if (loadedPDF.pageCache[pageNum]) {
+            const img = document.getElementById('exerciseImage');
+            img.src = loadedPDF.pageCache[pageNum];
+            img.style.transform = `scale(${state.zoomLevel})`;
+            updatePageIndicator(pageNum);
+            return;
+        }
+
         const page = await loadedPDF.document.getPage(pageNum);
 
-        // Escala para buena calidad
-        const scale = 2;
+        // Escala mejorada para mejor calidad (3 en lugar de 2)
+        const scale = 3;
         const viewport = page.getViewport({ scale });
 
         // Crear canvas temporal para renderizar
@@ -1327,18 +1625,18 @@ async function renderPDFPage(pageNum) {
             viewport: viewport
         }).promise;
 
-        // Convertir a imagen y mostrar
+        // Convertir a imagen
+        const imageData = canvas.toDataURL('image/png');
+
+        // Guardar en caché
+        loadedPDF.pageCache[pageNum] = imageData;
+
+        // Mostrar
         const img = document.getElementById('exerciseImage');
-        img.src = canvas.toDataURL('image/png');
+        img.src = imageData;
         img.style.transform = `scale(${state.zoomLevel})`;
 
-        // Actualizar indicador de página
-        document.getElementById('pageIndicator').textContent =
-            `Página ${pageNum} de ${loadedPDF.totalPages}`;
-
-        // Actualizar botones de navegación
-        document.getElementById('prevPageBtn').disabled = pageNum <= 1;
-        document.getElementById('nextPageBtn').disabled = pageNum >= loadedPDF.totalPages;
+        updatePageIndicator(pageNum);
 
         loadedPDF.currentPage = pageNum;
         state.currentPage = pageNum;
@@ -1348,24 +1646,80 @@ async function renderPDFPage(pageNum) {
     }
 }
 
+/**
+ * Actualiza el indicador de página
+ */
+function updatePageIndicator(pageNum) {
+    document.getElementById('pageIndicator').textContent =
+        `Página ${pageNum} de ${loadedPDF.totalPages}`;
+
+    // Actualizar botones de navegación
+    document.getElementById('prevPageBtn').disabled = pageNum <= 1;
+    document.getElementById('nextPageBtn').disabled = pageNum >= loadedPDF.totalPages;
+}
+
+/**
+ * Precarga páginas adyacentes para navegación más suave
+ */
+async function preloadAdjacentPages(currentPage) {
+    if (!loadedPDF.document) return;
+
+    const pagesToPreload = [];
+
+    // Precargar página anterior
+    if (currentPage > 1 && !loadedPDF.pageCache[currentPage - 1]) {
+        pagesToPreload.push(currentPage - 1);
+    }
+
+    // Precargar página siguiente
+    if (currentPage < loadedPDF.totalPages && !loadedPDF.pageCache[currentPage + 1]) {
+        pagesToPreload.push(currentPage + 1);
+    }
+
+    // Renderizar páginas en segundo plano
+    for (const pageNum of pagesToPreload) {
+        try {
+            const page = await loadedPDF.document.getPage(pageNum);
+            const scale = 3;
+            const viewport = page.getViewport({ scale });
+
+            const canvas = document.createElement('canvas');
+            const context = canvas.getContext('2d');
+            canvas.width = viewport.width;
+            canvas.height = viewport.height;
+
+            await page.render({
+                canvasContext: context,
+                viewport: viewport
+            }).promise;
+
+            loadedPDF.pageCache[pageNum] = canvas.toDataURL('image/png');
+        } catch (e) {
+            console.warn(`No se pudo precargar página ${pageNum}`);
+        }
+    }
+}
+
 // Sobrescribir funciones de navegación para soportar PDFs
 const originalPrevPage = prevPage;
 const originalNextPage = nextPage;
 
-prevPage = function () {
+prevPage = async function () {
     if (loadedPDF.document && state.currentExercise?.isPDF) {
         if (loadedPDF.currentPage > 1) {
-            renderPDFPage(loadedPDF.currentPage - 1);
+            await renderPDFPage(loadedPDF.currentPage - 1);
+            preloadAdjacentPages(loadedPDF.currentPage);
         }
     } else {
         originalPrevPage();
     }
 };
 
-nextPage = function () {
+nextPage = async function () {
     if (loadedPDF.document && state.currentExercise?.isPDF) {
         if (loadedPDF.currentPage < loadedPDF.totalPages) {
-            renderPDFPage(loadedPDF.currentPage + 1);
+            await renderPDFPage(loadedPDF.currentPage + 1);
+            preloadAdjacentPages(loadedPDF.currentPage);
         }
     } else {
         originalNextPage();
@@ -1494,61 +1848,442 @@ function updateTimerBtnUI() {
 }
 
 // ==========================================
-// EXERCISE NOTES FUNCTIONS
+// QUICK NOTES PANEL FUNCTIONS (New Enhanced Version)
 // ==========================================
 
+// Estado del panel de notas
+const quickNotesState = {
+    mode: 'text', // 'text' o 'draw'
+    isDrawing: false,
+    lastX: 0,
+    lastY: 0,
+    ctx: null,
+    canvas: null
+};
+
 /**
- * Alterna la visibilidad del panel de notas del ejercicio
+ * Alterna la visibilidad del panel de notas rápidas
  */
-function toggleExerciseNotes() {
-    const panel = document.getElementById('exerciseNotesPanel');
+function toggleQuickNotes() {
+    const panel = document.getElementById('quickNotesPanel');
     if (panel) {
         panel.classList.toggle('hidden');
+
+        if (!panel.classList.contains('hidden')) {
+            // Cargar contenido guardado
+            loadQuickNotesContent();
+
+            // Inicializar canvas si es la primera vez
+            if (!quickNotesState.canvas) {
+                initQuickNotesCanvas();
+            }
+
+            // Hacer el panel arrastrable y redimensionable
+            makeNotesPanelDraggable();
+            makeNotesPanelResizable();
+
+            // Restaurar posición y tamaño guardados
+            restoreNotesPanelSizeAndPosition();
+        } else {
+            // Guardar contenido al cerrar
+            saveQuickNotesContent();
+        }
     }
 }
 
 /**
- * Inicializa los listeners para el área de notas
+ * Cambia entre modo texto y dibujo
  */
-function initNotesListeners() {
-    const notesArea = document.getElementById('exerciseNotesArea');
-    if (notesArea) {
-        notesArea.addEventListener('input', () => {
-            if (state.currentExercise) {
-                state.exerciseNotes[state.currentExercise.name] = notesArea.value;
-                saveExerciseNotes();
-            }
+function switchNotesMode(mode) {
+    quickNotesState.mode = mode;
+
+    const textarea = document.getElementById('quickNotesTextarea');
+    const canvas = document.getElementById('quickNotesCanvas');
+    const buttons = document.querySelectorAll('.notes-mode-btn');
+
+    // Actualizar UI de botones
+    buttons.forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.mode === mode);
+    });
+
+    // Alternar visibilidad
+    if (mode === 'text') {
+        textarea.classList.remove('hidden');
+        canvas.classList.add('hidden');
+    } else {
+        textarea.classList.add('hidden');
+        canvas.classList.remove('hidden');
+
+        // Asegurar que el canvas está inicializado
+        if (!quickNotesState.canvas) {
+            initQuickNotesCanvas();
+        }
+    }
+}
+
+/**
+ * Inicializa el canvas de notas
+ */
+function initQuickNotesCanvas() {
+    const canvas = document.getElementById('quickNotesCanvas');
+    const contentArea = document.getElementById('notesContentArea');
+
+    if (!canvas || !contentArea) return;
+
+    // Ajustar tamaño del canvas al contenedor
+    canvas.width = contentArea.offsetWidth;
+    canvas.height = contentArea.offsetHeight;
+
+    quickNotesState.canvas = canvas;
+    quickNotesState.ctx = canvas.getContext('2d');
+
+    // Restaurar dibujo guardado
+    restoreNotesDrawing();
+
+    // Event listeners para dibujar
+    canvas.addEventListener('mousedown', startNotesDrawing);
+    canvas.addEventListener('mousemove', drawOnNotes);
+    canvas.addEventListener('mouseup', stopNotesDrawing);
+    canvas.addEventListener('mouseout', stopNotesDrawing);
+
+    // Soporte táctil
+    canvas.addEventListener('touchstart', handleNotesTouchStart);
+    canvas.addEventListener('touchmove', handleNotesTouchMove);
+    canvas.addEventListener('touchend', stopNotesDrawing);
+}
+
+/**
+ * Inicia el dibujo en el canvas de notas
+ */
+function startNotesDrawing(e) {
+    if (quickNotesState.mode !== 'draw') return;
+
+    quickNotesState.isDrawing = true;
+    const coords = getNotesCanvasCoords(e);
+    quickNotesState.lastX = coords.x;
+    quickNotesState.lastY = coords.y;
+}
+
+/**
+ * Dibuja en el canvas de notas
+ */
+function drawOnNotes(e) {
+    if (!quickNotesState.isDrawing || quickNotesState.mode !== 'draw') return;
+
+    const ctx = quickNotesState.ctx;
+    const coords = getNotesCanvasCoords(e);
+
+    ctx.beginPath();
+    ctx.moveTo(quickNotesState.lastX, quickNotesState.lastY);
+    ctx.lineTo(coords.x, coords.y);
+
+    ctx.strokeStyle = '#2c3e50';
+    ctx.lineWidth = 2;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.stroke();
+
+    quickNotesState.lastX = coords.x;
+    quickNotesState.lastY = coords.y;
+}
+
+/**
+ * Detiene el dibujo en notas
+ */
+function stopNotesDrawing() {
+    if (quickNotesState.isDrawing) {
+        quickNotesState.isDrawing = false;
+        saveNotesDrawing();
+    }
+}
+
+/**
+ * Obtiene coordenadas del canvas de notas
+ */
+function getNotesCanvasCoords(e) {
+    const canvas = quickNotesState.canvas;
+    const rect = canvas.getBoundingClientRect();
+
+    return {
+        x: e.clientX - rect.left,
+        y: e.clientY - rect.top
+    };
+}
+
+/**
+ * Manejo de touch en notas
+ */
+function handleNotesTouchStart(e) {
+    e.preventDefault();
+    const touch = e.touches[0];
+    const mouseEvent = new MouseEvent('mousedown', {
+        clientX: touch.clientX,
+        clientY: touch.clientY
+    });
+    startNotesDrawing(mouseEvent);
+}
+
+function handleNotesTouchMove(e) {
+    e.preventDefault();
+    const touch = e.touches[0];
+    const mouseEvent = new MouseEvent('mousemove', {
+        clientX: touch.clientX,
+        clientY: touch.clientY
+    });
+    drawOnNotes(mouseEvent);
+}
+
+/**
+ * Limpia el canvas de notas
+ */
+function clearNotesCanvas() {
+    if (quickNotesState.ctx && quickNotesState.canvas) {
+        quickNotesState.ctx.clearRect(0, 0, quickNotesState.canvas.width, quickNotesState.canvas.height);
+        saveNotesDrawing();
+        showNotification('Dibujo de notas borrado', 'info');
+    }
+}
+
+/**
+ * Guarda el dibujo de notas
+ */
+function saveNotesDrawing() {
+    if (!quickNotesState.canvas) return;
+
+    try {
+        const drawingData = quickNotesState.canvas.toDataURL();
+        localStorage.setItem('psicotrain_quick_notes_drawing', drawingData);
+    } catch (e) {
+        console.warn('Error guardando dibujo de notas');
+    }
+}
+
+/**
+ * Restaura el dibujo de notas
+ */
+function restoreNotesDrawing() {
+    if (!quickNotesState.canvas || !quickNotesState.ctx) return;
+
+    try {
+        const saved = localStorage.getItem('psicotrain_quick_notes_drawing');
+        if (saved) {
+            const img = new Image();
+            img.onload = () => {
+                quickNotesState.ctx.drawImage(img, 0, 0);
+            };
+            img.src = saved;
+        }
+    } catch (e) {
+        console.warn('Error restaurando dibujo de notas');
+    }
+}
+
+/**
+ * Guarda el contenido del texto de notas
+ */
+function saveQuickNotesContent() {
+    const textarea = document.getElementById('quickNotesTextarea');
+    if (textarea) {
+        localStorage.setItem('psicotrain_quick_notes_text', textarea.value);
+    }
+    saveNotesDrawing();
+    saveNotesPanelSizeAndPosition();
+}
+
+/**
+ * Carga el contenido de notas
+ */
+function loadQuickNotesContent() {
+    const textarea = document.getElementById('quickNotesTextarea');
+    if (textarea) {
+        const saved = localStorage.getItem('psicotrain_quick_notes_text');
+        textarea.value = saved || '';
+
+        // Auto-save cuando el usuario escribe
+        textarea.addEventListener('input', () => {
+            saveQuickNotesContent();
         });
     }
 }
 
 /**
- * Carga las notas de todos los ejercicios desde localStorage
+ * Hace el panel arrastrable
  */
-function loadExerciseNotes() {
-    try {
-        const saved = localStorage.getItem('psicotrain_exercise_notes');
-        if (saved) {
-            state.exerciseNotes = JSON.parse(saved);
+function makeNotesPanelDraggable() {
+    const panel = document.getElementById('quickNotesPanel');
+    const titlebar = document.getElementById('notesTitlebar');
+
+    if (!panel || !titlebar) return;
+
+    let isDragging = false;
+    let currentX;
+    let currentY;
+    let initialX;
+    let initialY;
+
+    titlebar.addEventListener('mousedown', dragStart);
+    document.addEventListener('mousemove', drag);
+    document.addEventListener('mouseup', dragEnd);
+
+    function dragStart(e) {
+        initialX = e.clientX - panel.offsetLeft;
+        initialY = e.clientY - panel.offsetTop;
+
+        if (e.target === titlebar || titlebar.contains(e.target)) {
+            isDragging = true;
         }
-    } catch (e) {
-        console.error('Error cargando notas de ejercicios:', e);
+    }
+
+    function drag(e) {
+        if (isDragging) {
+            e.preventDefault();
+
+            currentX = e.clientX - initialX;
+            currentY = e.clientY - initialY;
+
+            panel.style.left = currentX + 'px';
+            panel.style.top = currentY + 'px';
+            panel.style.right = 'auto'; // Desactivar right para usar left
+        }
+    }
+
+    function dragEnd() {
+        if (isDragging) {
+            isDragging = false;
+            saveNotesPanelSizeAndPosition();
+        }
     }
 }
 
 /**
- * Guarda las notas de todos los ejercicios en localStorage
+ * Hace el panel redimensionable
  */
-function saveExerciseNotes() {
-    localStorage.setItem('psicotrain_exercise_notes', JSON.stringify(state.exerciseNotes));
+function makeNotesPanelResizable() {
+    const panel = document.getElementById('quickNotesPanel');
+    const handle = document.getElementById('notesResizeHandle');
+
+    if (!panel || !handle) return;
+
+    let isResizing = false;
+    let startX, startY, startWidth, startHeight;
+
+    handle.addEventListener('mousedown', resizeStart);
+    document.addEventListener('mousemove', resize);
+    document.addEventListener('mouseup', resizeEnd);
+
+    function resizeStart(e) {
+        isResizing = true;
+        startX = e.clientX;
+        startY = e.clientY;
+        startWidth = panel.offsetWidth;
+        startHeight = panel.offsetHeight;
+        e.preventDefault();
+    }
+
+    function resize(e) {
+        if (!isResizing) return;
+
+        const width = startWidth + (e.clientX - startX);
+        const height = startHeight + (e.clientY - startY);
+
+        if (width > 250) panel.style.width = width + 'px';
+        if (height > 200) panel.style.height = height + 'px';
+
+        // Redimensionar canvas si existe
+        if (quickNotesState.canvas) {
+            const contentArea = document.getElementById('notesContentArea');
+            if (contentArea) {
+                const savedDrawing = quickNotesState.canvas.toDataURL();
+                quickNotesState.canvas.width = contentArea.offsetWidth;
+                quickNotesState.canvas.height = contentArea.offsetHeight;
+
+                // Restaurar dibujo después de redimensionar
+                const img = new Image();
+                img.onload = () => {
+                    quickNotesState.ctx.drawImage(img, 0, 0);
+                };
+                img.src = savedDrawing;
+            }
+        }
+    }
+
+    function resizeEnd() {
+        if (isResizing) {
+            isResizing = false;
+            saveNotesPanelSizeAndPosition();
+        }
+    }
 }
 
 /**
- * Carga la nota específica del ejercicio actual en el textarea
+ * Guarda posición y tamaño del panel
  */
-function loadCurrentExerciseNote() {
-    const notesArea = document.getElementById('exerciseNotesArea');
-    if (notesArea && state.currentExercise) {
-        notesArea.value = state.exerciseNotes[state.currentExercise.name] || '';
+function saveNotesPanelSizeAndPosition() {
+    const panel = document.getElementById('quickNotesPanel');
+    if (!panel) return;
+
+    // Solo guardar si el panel tiene dimensiones válidas (no está oculto)
+    if (panel.offsetWidth > 0 && panel.offsetHeight > 0) {
+        const state = {
+            width: panel.offsetWidth,
+            height: panel.offsetHeight,
+            left: panel.offsetLeft,
+            top: panel.offsetTop
+        };
+
+        localStorage.setItem('psicotrain_notes_panel_state', JSON.stringify(state));
+    }
+}
+
+/**
+ * Restaura posición y tamaño del panel
+ */
+function restoreNotesPanelSizeAndPosition() {
+    const panel = document.getElementById('quickNotesPanel');
+    if (!panel) return;
+
+    // Valores por defecto
+    const defaults = {
+        width: 400,
+        height: 500,
+        left: window.innerWidth - 450,
+        top: 100
+    };
+
+    try {
+        const saved = localStorage.getItem('psicotrain_notes_panel_state');
+        if (saved) {
+            const state = JSON.parse(saved);
+            // Solo aplicar si las dimensiones son válidas (mayores que 0)
+            if (state.width > 0 && state.height > 0) {
+                panel.style.width = state.width + 'px';
+                panel.style.height = state.height + 'px';
+                panel.style.left = state.left + 'px';
+                panel.style.top = state.top + 'px';
+                panel.style.right = 'auto';
+            } else {
+                // Usar valores por defecto si se guardaron dimensiones inválidas
+                panel.style.width = defaults.width + 'px';
+                panel.style.height = defaults.height + 'px';
+                panel.style.left = defaults.left + 'px';
+                panel.style.top = defaults.top + 'px';
+                panel.style.right = 'auto';
+            }
+        } else {
+            // Primera vez, usar valores por defecto
+            panel.style.width = defaults.width + 'px';
+            panel.style.height = defaults.height + 'px';
+            panel.style.left = defaults.left + 'px';
+            panel.style.top = defaults.top + 'px';
+            panel.style.right = 'auto';
+        }
+    } catch (e) {
+        // Si hay error parseando, usar valores por defecto
+        console.warn('Error restaurando posición del panel de notas, usando valores por defecto');
+        panel.style.width = defaults.width + 'px';
+        panel.style.height = defaults.height + 'px';
+        panel.style.left = defaults.left + 'px';
+        panel.style.top = defaults.top + 'px';
+        panel.style.right = 'auto';
     }
 }

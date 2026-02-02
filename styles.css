@@ -56,6 +56,8 @@
     margin: 0;
     padding: 0;
     box-sizing: border-box;
+    /* Eliminar highlight azul en iOS Safari al tocar elementos */
+    -webkit-tap-highlight-color: transparent;
 }
 
 html,
@@ -64,12 +66,71 @@ body {
     overflow: hidden;
 }
 
+html {
+    /* Scroll suave en toda la página (tactil) */
+    -webkit-overflow-scrolling: touch;
+    /* Prevenir ajuste de texto en iOS */
+    -webkit-text-size-adjust: 100%;
+}
+
 body {
     font-family: var(--font-family);
     background: var(--bg-primary);
     color: var(--text-primary);
     line-height: 1.6;
+    /* Prevenir selección de texto no deseada */
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+    /* Prevenir comportamiento de "toque y mantener" en iOS */
+    -webkit-touch-callout: none;
 }
+
+/* Permitir selección de texto en áreas de entrada y edición */
+input,
+textarea,
+.notes-textarea,
+#quickNotesTextarea,
+#notesTextarea,
+.breadcrumb,
+.page-indicator,
+p,
+li {
+    -webkit-user-select: text;
+    -moz-user-select: text;
+    -ms-user-select: text;
+    user-select: text;
+}
+
+/* Prevenir zoom automático en iOS (mínimo 16px en font-size) */
+input,
+textarea,
+.notes-textarea,
+#quickNotesTextarea,
+#notesTextarea {
+    font-size: max(16px, 1em);
+}
+
+/* Canvas de dibujo: permitir todas las interacciones táctiles sin interferencias */
+canvas,
+#drawingCanvas,
+#quickNotesCanvas {
+    touch-action: none;
+    -webkit-user-select: none;
+    user-select: none;
+}
+
+/* Elementos interactivos: permitir tap pero no pan/zoom */
+button,
+.tool-btn,
+.nav-btn,
+.btn-icon,
+a {
+    touch-action: manipulation;
+    cursor: pointer;
+}
+
 
 /* Layout principal */
 .app-container {
@@ -525,15 +586,16 @@ body {
 }
 
 .nav-btn {
-    width: 40px;
-    height: 40px;
+    width: 32px;
+    height: 32px;
     display: flex;
     align-items: center;
     justify-content: center;
     background: var(--glass-bg);
     border: 1px solid var(--glass-border);
-    border-radius: 0.5rem;
+    border-radius: 0.4rem;
     color: var(--text-primary);
+    font-size: 0.85rem;
     font-weight: 600;
     cursor: pointer;
     transition: var(--transition);
@@ -550,10 +612,10 @@ body {
 }
 
 .page-indicator {
-    font-size: 0.9rem;
+    font-size: 0.8rem;
     color: var(--text-secondary);
     font-weight: 500;
-    min-width: 120px;
+    min-width: 100px;
     text-align: center;
 }
 
@@ -578,6 +640,10 @@ body {
     position: relative;
     overflow: scroll;
     min-height: 300px;
+    /* Habilitar scroll suave con momentum en dispositivos táctiles */
+    -webkit-overflow-scrolling: touch;
+    /* Scroll más suave en todos los navegadores */
+    scroll-behavior: smooth;
 }
 
 .image-container::-webkit-scrollbar {
@@ -625,30 +691,42 @@ body {
     cursor: crosshair;
 }
 
-/* Drawing Toolbar */
+/* Drawing Toolbar - Vertical en el lateral izquierdo */
 .drawing-toolbar {
+    position: fixed;
+    left: 300px;
+    top: 100px;
+    bottom: 20px;
+    width: 60px;
     display: flex;
+    flex-direction: column;
     align-items: center;
-    gap: 0.75rem;
-    padding: 0.75rem 1rem;
+    gap: 0.5rem;
+    padding: 0.75rem 0.35rem;
     background: var(--bg-secondary);
     border-radius: 0.75rem;
-    margin-bottom: 0.5rem;
-    flex-wrap: wrap;
+    box-shadow: var(--shadow-lg);
+    z-index: 800;
+    overflow-y: auto;
+}
+
+.drawing-toolbar.hidden {
+    display: none;
 }
 
 .tool-btn {
-    width: 40px;
-    height: 40px;
+    width: 44px;
+    height: 44px;
     display: flex;
     align-items: center;
     justify-content: center;
     background: var(--glass-bg);
     border: 2px solid var(--glass-border);
     border-radius: 0.5rem;
-    font-size: 1.2rem;
+    font-size: 1.3rem;
     cursor: pointer;
     transition: var(--transition);
+    flex-shrink: 0;
 }
 
 .tool-btn:hover {
@@ -661,22 +739,27 @@ body {
     border-color: var(--primary);
 }
 
+/* Color picker vertical */
 .color-picker {
     display: flex;
-    gap: 0.5rem;
-    padding: 0 0.5rem;
-    border-left: 1px solid var(--border);
-    border-right: 1px solid var(--border);
-    margin: 0 0.5rem;
+    flex-direction: column;
+    gap: 0.4rem;
+    padding: 0.5rem 0;
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+    margin: 0.5rem 0;
+    width: 100%;
+    align-items: center;
 }
 
 .color-btn {
-    width: 28px;
-    height: 28px;
+    width: 32px;
+    height: 32px;
     border-radius: 50%;
     border: 3px solid transparent;
     cursor: pointer;
     transition: var(--transition);
+    flex-shrink: 0;
 }
 
 .color-btn[style*="background:#ffffff"],
@@ -693,24 +776,31 @@ body {
     box-shadow: 0 0 0 2px var(--primary);
 }
 
+/* Brush size control vertical */
 .brush-size-control {
     display: flex;
+    flex-direction: column;
     align-items: center;
     gap: 0.5rem;
-    padding: 0 0.75rem;
-    border-left: 1px solid var(--border);
+    padding: 0.5rem 0;
+    border-top: 1px solid var(--border);
+    width: 100%;
 }
 
 .size-label {
-    font-size: 0.75rem;
+    font-size: 0.65rem;
     color: var(--text-muted);
+    writing-mode: vertical-rl;
+    text-orientation: mixed;
+    transform: rotate(180deg);
 }
 
 .size-value {
-    font-size: 0.75rem;
+    font-size: 0.8rem;
     color: var(--text-primary);
     font-weight: 600;
     min-width: 20px;
+    text-align: center;
 }
 
 .drawing-toolbar input[type="range"] {
@@ -721,6 +811,7 @@ body {
     background: var(--bg-tertiary);
     border-radius: 3px;
     cursor: pointer;
+    transform: rotate(-90deg);
 }
 
 .drawing-toolbar input[type="range"]::-webkit-slider-thumb {
@@ -770,10 +861,10 @@ body {
     transform: scale(1.1);
 }
 
-/* Answers Panel - Right Sidebar */
+/* Answers Panel - Right Sidebar - Más estrecho */
 .answers-panel {
-    width: 280px;
-    min-width: 280px;
+    width: 220px;
+    min-width: 220px;
     background: var(--bg-secondary);
     border-radius: 1rem;
     display: flex;
@@ -1298,30 +1389,31 @@ body {
     gap: 1rem;
     justify-content: flex-end;
 }
-/* Stopwatch Styles */
+
+/* Stopwatch Styles - Compacto */
 .stopwatch-container {
     display: flex;
     align-items: center;
-    gap: 0.75rem;
+    gap: 0.5rem;
     background: var(--bg-tertiary);
-    padding: 0.4rem 0.75rem;
-    border-radius: 2rem;
+    padding: 0.3rem 0.6rem;
+    border-radius: 1.5rem;
     border: 1px solid var(--border);
-    margin: 0 1rem;
+    margin: 0 0.5rem;
 }
 
 .stopwatch-display {
     font-family: 'JetBrains Mono', 'Courier New', monospace;
-    font-size: 1.1rem;
+    font-size: 0.9rem;
     font-weight: 700;
     color: var(--primary-light);
-    min-width: 60px;
+    min-width: 50px;
     text-align: center;
 }
 
 .stopwatch-controls {
     display: flex;
-    gap: 0.25rem;
+    gap: 0.15rem;
 }
 
 .stopwatch-btn {
@@ -1329,8 +1421,8 @@ body {
     border: none;
     color: var(--text-secondary);
     cursor: pointer;
-    font-size: 1rem;
-    padding: 0.2rem;
+    font-size: 0.85rem;
+    padding: 0.15rem;
     border-radius: 50%;
     transition: var(--transition);
     display: flex;
@@ -1409,4 +1501,369 @@ body {
     display: flex;
     align-items: center;
     gap: 0.5rem;
+}
+
+/* Quick Notes Panel - Floating */
+.quick-notes-panel {
+    position: fixed;
+    top: 100px;
+    right: 320px;
+    width: 400px;
+    height: 500px;
+    background: #fff8dc;
+    /* Notebook paper color */
+    border-radius: 1rem;
+    box-shadow: 0 15px 40px rgba(0, 0, 0, 0.3);
+    z-index: 900;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    transition: var(--transition);
+}
+
+.light-mode .quick-notes-panel {
+    background: #fffef7;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+}
+
+.quick-notes-panel.hidden {
+    display: none;
+}
+
+/* Notes Titlebar - Draggable */
+.notes titlebar {
+    background: linear-gradient(135deg, #8b4513, #a0522d);
+    padding: 0.75rem 1rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: move;
+    user-select: none;
+    border-bottom: 2px solid #6b3410;
+}
+
+.notes-titlebar h4 {
+    margin: 0;
+    color: white;
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+.notes-controls {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+.notes-mode-btn,
+.notes-clear-btn,
+.notes-close-btn {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: none;
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: var(--transition);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.notes-mode-btn:hover,
+.notes-clear-btn:hover {
+    background: rgba(255, 255, 255, 0.3);
+    transform: scale(1.1);
+}
+
+.notes-mode-btn.active {
+    background: rgba(255, 255, 255, 0.4);
+    box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.5);
+}
+
+.notes-close-btn:hover {
+    background: #ef4444;
+    transform: scale(1.1);
+}
+
+/* Notes Content Area */
+.notes-content-area {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+    background: linear-gradient(to right,
+            #e8d4a0 0px,
+            #e8d4a0 1px,
+            transparent 1px,
+            transparent 20px,
+            #fff8dc 20px);
+}
+
+/* Notebook Lines Background */
+.notes-textarea,
+.notes-canvas {
+    width: 100%;
+    height: 100%;
+    border: none;
+    outline: none;
+    padding: 1.5rem;
+    padding-left: 30px;
+    font-family: 'Segoe Print', 'Comic Sans MS', cursive;
+    font-size: 1rem;
+    line-height: 2rem;
+    color: #2c3e50;
+    background:
+        repeating-linear-gradient(transparent,
+            transparent 1.9rem,
+            #c8b8a0 1.9rem,
+            #c8b8a0 2rem),
+        linear-gradient(to right,
+            #e8d4a0 0px,
+            #e8d4a0 1px,
+            transparent 1px,
+            transparent 20px,
+            transparent 20px);
+    background-attachment: local;
+    resize: none;
+}
+
+.light-mode .notes-textarea,
+.light-mode .notes-canvas {
+    color: #1a1a1a;
+}
+
+.notes-textarea::placeholder {
+    color: #a0826d;
+    opacity: 0.6;
+}
+
+.notes-canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    cursor: crosshair;
+    padding: 0;
+}
+
+.notes-canvas.hidden {
+    display: none;
+}
+
+/* Resize Handle */
+.notes-resize-handle {
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    width: 20px;
+    height: 20px;
+    cursor: nwse-resize;
+    background: linear-gradient(135deg, transparent 50%, #8b4513 50%);
+    border-bottom-right-radius: 1rem;
+}
+
+.notes-resize-handle:hover {
+    background: linear-gradient(135deg, transparent 50%, #a0522d 50%);
+}
+
+/* Responsive adjustments for quick notes */
+@media (max-width: 1024px) {
+    .quick-notes-panel {
+        right: 20px;
+        width: 350px;
+        height: 400px;
+    }
+}
+
+@media (max-width: 768px) {
+    .quick-notes-panel {
+        right: 10px;
+        left: 10px;
+        width: auto;
+        height: 300px;
+        top: 80px;
+    }
+}/* ===== Media Queries para iPad ===== */
+
+/* iPad en orientación portrait (768px ancho) */
+@media only screen and (min-device-width: 768px) and (max-device-width: 1024px) and (orientation: portrait) {
+
+    /* Sidebar: colapsada por defecto en portrait */
+    .sidebar {
+        width: 80px;
+    }
+
+    .sidebar.collapsed {
+        width: 80px;
+    }
+
+    .sidebar:not(.collapsed) {
+        width: 280px;
+    }
+
+    /* Panel de respuestas: reducir más en portrait */
+    .answers-panel {
+        width: 180px;
+        min-width: 180px;
+    }
+
+    /* Barra de herramientas: posición ajustada */
+    .drawing-toolbar {
+        left: 100px;
+        width: 55px;
+    }
+
+    /* Panel de notas: ancho completo en portrait */
+    .quick-notes-panel {
+        left: 20px;
+        right: 20px;
+        width: auto;
+        max-width: 600px;
+        margin: 0 auto;
+    }
+
+    /* Botones más grandes para táctil */
+    .tool-btn {
+        min-width: 44px;
+        min-height: 44px;
+    }
+
+    .nav-btn {
+        min-width: 44px;
+        min-height: 44px;
+    }
+}
+
+/* iPad en orientación landscape (1024px ancho) */
+@media only screen and (min-device-width: 768px) and (max-device-width: 1024px) and (orientation: landscape) {
+
+    /* En landscape hay más espacio, mantener layout normal */
+    .sidebar {
+        width: 280px;
+    }
+
+    /* Panel de respuestas: ancho normal */
+    .answers-panel {
+        width: 220px;
+        min-width: 220px;
+    }
+
+    /* Barra de herramientas visible */
+    .drawing-toolbar {
+        left: 300px;
+    }
+
+    /* Botones táctiles */
+    .tool-btn,
+    .nav-btn {
+        min-width: 44px;
+        min-height: 44px;
+    }
+}
+
+/* Reglas generales para todos los iPads (independiente de orientación) */
+@media only screen and (min-device-width: 768px) and (max-device-width: 1024px) {
+
+    /* Aumentar área de toque de botones pequeños */
+    .color-btn {
+        width: 40px;
+        height: 40px;
+        min-width: 40px;
+        min-height: 40px;
+    }
+
+    /* Controles de zoom más grandes */
+    .zoom-btn {
+        width: 48px;
+        height: 48px;
+        font-size: 1.5rem;
+    }
+
+    /* Slider de grosor más fácil de usar */
+    #brushSize {
+        height: 8px;
+        min-height: 44px;
+        /* Área de toque más grande */
+    }
+
+    /* Handle de redimensionamiento más grande */
+    .notes-resize-handle {
+        width: 30px;
+        height: 30px;
+    }
+
+    /* Mejorar scrollbars para táctil */
+    .image-container::-webkit-scrollbar {
+        width: 12px;
+        height: 12px;
+    }
+
+    .answers-list::-webkit-scrollbar {
+        width: 10px;
+    }
+
+    /* Espaciado más generoso en botones de respuesta */
+    .answer-btn {
+        min-width: 44px;
+        min-height: 44px;
+        padding: 0.6rem 0.8rem;
+    }
+
+    /* Inputs más fáciles de tocar */
+    .stopwatch-btn {
+        min-width: 40px;
+        min-height: 40px;
+    }
+
+    /* Mejorar el cronómetro */
+    #stopwatchDisplay {
+        font-size: 1.1rem;
+        padding: 0.5rem 0.8rem;
+    }
+}
+
+/* iPad Pro (1366px en landscape) */
+@media only screen and (min-device-width: 1024px) and (max-device-width: 1366px) {
+
+    /* iPad Pro tiene más espacio, usar layout desktop con ajustes mínimos */
+    .tool-btn,
+    .nav-btn {
+        min-width: 44px;
+        min-height: 44px;
+    }
+
+    .color-btn {
+        width: 40px;
+        height: 40px;
+    }
+}
+
+/* Detección de touch device (general) */
+@media (hover: none) and (pointer: coarse) {
+    /* Este dispositivo solo tiene pantalla táctil */
+
+    /* Eliminar efectos hover que no funcionan en táctil */
+    .tool-btn:hover,
+    .nav-btn:hover,
+    .btn-icon:hover {
+        transform: none;
+    }
+
+    /* Usar active en lugar de hover */
+    .tool-btn:active {
+        transform: scale(0.95);
+        background: var(--bg-tertiary);
+    }
+
+    .nav-btn:active {
+        background: var(--primary);
+        color: white;
+    }
+
+    /* Botones más grandes en general */
+    button {
+        min-height: 44px;
+        padding: 0.6rem 1rem;
+    }
 }

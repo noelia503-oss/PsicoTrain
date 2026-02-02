@@ -3,7 +3,8 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <!-- Viewport optimizado para iPad: permite zoom del usuario pero no auto-zoom -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
     <title>PsicoTrain - Entrenador de Psicotécnicos</title>
     <meta name="description" content="Aplicación interactiva para practicar ejercicios psicotécnicos de oposiciones">
 
@@ -14,6 +15,11 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="PsicoTrain">
     <link rel="apple-touch-icon" href="icons/icon-192.png">
+
+    <!-- iOS Safari optimizations -->
+    <meta name="format-detection" content="telephone=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
 
     <!-- PDF.js Library -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
@@ -125,11 +131,10 @@
                     </div>
 
                     <div class="viewer-actions">
-                        <button class="tool-btn" id="toggleExerciseNotes" onclick="toggleExerciseNotes()"
-                            title="Notas rápidas del ejercicio">📝</button>
-                        <div class="drawing-toggle">
-                            <button class="tool-btn" id="toggleDrawing" onclick="toggleDrawingMode()"
-                                title="Modo dibujo">🎨</button>
+                        <button class="tool-btn" id="toggleQuickNotesBtn" onclick="toggleQuickNotes()"
+                            title="Notas rápidas">📝</button>
+                        <div class="drawing-toggle"> <button class="tool-btn" id="toggleDrawing"
+                                onclick="toggleDrawingMode()" title="Modo dibujo">🎨</button>
                         </div>
                     </div>
                 </div>
@@ -178,18 +183,9 @@
                             <!-- Se genera dinámicamente con JavaScript -->
                         </div>
                         <div class="answers-footer">
-                            <!-- Quick Notes Panel (Inside Answers for better layout) -->
-                            <div class="exercise-notes-panel hidden" id="exerciseNotesPanel">
-                                <div class="notes-header">
-                                    <h4>📓 Notas del Ejercicio</h4>
-                                    <button class="btn-close" onclick="toggleExerciseNotes()">×</button>
-                                </div>
-                                <textarea id="exerciseNotesArea"
-                                    placeholder="Trucos o notas para este PDF..."></textarea>
-                            </div>
+                            <button class="btn-small" onclick="addMoreQuestions()">+ Más</button>
+                            <span class="question-count" id="questionCount">10 preguntas</span>
                         </div>
-                        <button class="btn-small" onclick="addMoreQuestions()">+ Más</button>
-                        <span class="question-count" id="questionCount">10 preguntas</span>
                     </div>
                 </div>
     </div>
@@ -202,6 +198,27 @@
         <button class="zoom-btn" onclick="resetZoom()">↺</button>
     </div>
     </section>
+
+    <!-- Quick Notes Panel (Floating) -->
+    <div class="quick-notes-panel hidden" id="quickNotesPanel">
+        <div class="notes-titlebar" id="notesTitlebar">
+            <h4>📓 Notas Rápidas</h4>
+            <div class="notes-controls">
+                <button class="notes-mode-btn active" data-mode="text" onclick="switchNotesMode('text')"
+                    title="Modo texto">✍️</button>
+                <button class="notes-mode-btn" data-mode="draw" onclick="switchNotesMode('draw')"
+                    title="Modo dibujo">🎨</button>
+                <button class="notes-clear-btn" onclick="clearNotesCanvas()" title="Limpiar dibujo">🗑️</button>
+                <button class="notes-close-btn" onclick="toggleQuickNotes()">×</button>
+            </div>
+        </div>
+        <div class="notes-content-area" id="notesContentArea">
+            <textarea class="notes-textarea notebook-lines" id="quickNotesTextarea"
+                placeholder="Escribe tus notas aquí..."></textarea>
+            <canvas class="notes-canvas hidden" id="quickNotesCanvas"></canvas>
+        </div>
+        <div class="notes-resize-handle" id="notesResizeHandle"></div>
+    </div>
     </main>
     </div>
 
