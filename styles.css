@@ -712,6 +712,18 @@ a {
     cursor: crosshair;
 }
 
+#drawingCanvas.cursor-pen {
+    cursor: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='32' height='32' style='font-size:24px'><text y='20'>✏️</text></svg>") 0 20, auto;
+}
+
+#drawingCanvas.cursor-highlighter {
+    cursor: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='32' height='32' style='font-size:24px'><text y='20'>🖍️</text></svg>") 0 20, auto;
+}
+
+#drawingCanvas.cursor-eraser {
+    cursor: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='32' height='32' style='font-size:24px'><text y='20'>🧽</text></svg>") 0 20, auto;
+}
+
 /* Drawing Toolbar - Vertical en el lateral izquierdo */
 .drawing-toolbar {
     position: fixed;

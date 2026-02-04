@@ -909,9 +909,10 @@ function toggleDrawingMode() {
             initDrawingCanvas();
         }
 
+        updateCanvasCursor();
         showNotification('Modo dibujo activado ✏️', 'success');
     } else {
-        canvas.classList.remove('drawing-active');
+        canvas.classList.remove('drawing-active', 'cursor-pen', 'cursor-eraser', 'cursor-highlighter');
         toggleBtn.classList.remove('drawing-enabled');
         if (toolbar) toolbar.classList.add('hidden');
         showNotification('Modo dibujo desactivado', 'info');
@@ -941,6 +942,24 @@ function setTool(tool) {
         const brushSizeValue = document.getElementById('brushSizeValue');
         if (brushSizeInput) brushSizeInput.value = savedSize;
         if (brushSizeValue) brushSizeValue.textContent = savedSize;
+    }
+
+    // Actualizar el cursor del canvas
+    updateCanvasCursor();
+}
+
+/**
+ * Actualiza la clase del cursor en el canvas según la herramienta
+ */
+function updateCanvasCursor() {
+    const canvas = document.getElementById('drawingCanvas');
+    if (!canvas) return;
+
+    // Limpiar clases de cursores
+    canvas.classList.remove('cursor-pen', 'cursor-eraser', 'cursor-highlighter');
+
+    if (state.drawing.enabled) {
+        canvas.classList.add('cursor-' + state.drawing.tool);
     }
 }
 
