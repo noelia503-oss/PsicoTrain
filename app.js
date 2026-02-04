@@ -674,14 +674,28 @@ function goBackToList() {
  * Muestra una pantalla y oculta las demás
  */
 function showScreen(screenId) {
-    ['welcomeScreen', 'exerciseListScreen', 'exerciseViewerScreen'].forEach(id => {
-        const el = document.getElementById(id);
-        if (id === screenId) {
-            el.classList.remove('hidden');
+    console.log('Cerrando todas las pantallas...');
+    document.querySelectorAll('section').forEach(s => s.classList.add('hidden'));
+
+    const targetScreen = document.getElementById(screenId);
+    if (targetScreen) {
+        targetScreen.classList.remove('hidden');
+        console.log('Mostrando pantalla:', screenId);
+
+        // Gestionar visibilidad de la cabecera global
+        if (screenId === 'exerciseViewerScreen') {
+            document.body.classList.add('viewer-active');
         } else {
-            el.classList.add('hidden');
+            document.body.classList.remove('viewer-active');
         }
-    });
+    } else {
+        console.error('No se encontró la pantalla:', screenId);
+    }
+
+    // Cerrar sidebar en móviles tras navegar
+    if (window.innerWidth <= 768 && !state.sidebarCollapsed) {
+        toggleSidebar();
+    }
 }
 
 /**

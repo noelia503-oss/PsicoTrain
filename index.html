@@ -125,9 +125,17 @@
                     </div>
 
                     <div class="viewer-navigation">
-                        <button class="nav-btn" id="prevPageBtn" onclick="prevPage()">◀</button>
-                        <span class="page-indicator" id="pageIndicator">Página 1 de 1</span>
-                        <button class="nav-btn" id="nextPageBtn" onclick="nextPage()">▶</button>
+                        <div class="nav-pages">
+                            <button class="nav-btn" id="prevPageBtn" onclick="prevPage()">◀</button>
+                            <span class="page-indicator" id="pageIndicator">Página 1 de 1</span>
+                            <button class="nav-btn" id="nextPageBtn" onclick="nextPage()">▶</button>
+                        </div>
+
+                        <div class="nav-zoom">
+                            <button class="nav-btn zoom-btn" onclick="zoomOut()" title="Reducir">➖</button>
+                            <button class="nav-btn zoom-btn" onclick="zoomIn()" title="Aumentar">➕</button>
+                            <button class="nav-btn zoom-btn" onclick="resetZoom()" title="Restablecer">↺</button>
+                        </div>
                     </div>
 
                     <div class="viewer-actions">
@@ -188,14 +196,6 @@
                         </div>
                     </div>
                 </div>
-    </div>
-    </div>
-
-    <!-- Zoom Controls (floating) -->
-    <div class="zoom-controls">
-        <button class="zoom-btn" onclick="zoomIn()">+</button>
-        <button class="zoom-btn" onclick="zoomOut()">-</button>
-        <button class="zoom-btn" onclick="resetZoom()">↺</button>
     </div>
     </section>
 
